@@ -113,44 +113,43 @@ def main():
             st.image(
                 "https://i.pinimg.com/originals/73/93/14/739314e72faa8f68bc12a29dcf0ce07c.jpg",
                 caption="Ordesa y Monte Perdido",
-                width=450  # Ajusta el ancho según sea necesario
+                width=450
             )
             st.image(
                 "https://fascinatingspain.com/wp-content/uploads/benasque_nieve.jpg",
                 caption="Benasque",
-                width=450  # Ajusta el ancho según sea necesario
+                width=450
             )
 
         with col2:
             st.image(
                 "https://www.viajes.com/blog/wp-content/uploads/2021/09/sea-6580532_1920.jpg",
                 caption="Galicia, tierra de Meigas",
-                width=450  # Ajusta el ancho según sea necesario
+                width=450
             )
             st.image(
                 "https://i.pinimg.com/originals/cd/14/c8/cd14c8b90c06f714899d0d17e7d7fcd4.jpg",
                 caption="Mallorca, Cala Egos - Cala d'Or",
-                width=400  # Ajusta el ancho según sea necesario
+                width=400
             )
 
         with col3:
             st.image(
                 "https://palenciaturismo.es/system/files/Monta%C3%B1aPalentinaGaleria5.jpg",
                 caption="Palencia",
-                width=450  # Ajusta el ancho según sea necesario
+                width=450
             )
             st.image(
                 "https://i.pinimg.com/originals/d8/3a/f2/d83af2c8d615f0a8393ef3eeb9325435.jpg",
                 caption="Asturias",
-                width=450  # Ajusta el ancho según sea necesario
+                width=450
             )
 
     if choice == "Valores climatológicos por comunidad y provincia":
 
-        # Título de la aplicación
+
         st.title("🌟 **Análisis Climatológico Interactivo por Ciudad** 🌤️")
 
-        # Descripción de la aplicación
         st.markdown("""
         ### 🏙️ **Explora el Clima en Profundidad** 🌍
 
@@ -344,32 +343,36 @@ def main():
                     FROM valores_climatologicos
                     WHERE nombre_id = {ciudad_id} AND fecha BETWEEN '{fecha_inicio}' AND '{fecha_fin}'
                     GROUP BY fecha ORDER BY fecha;
-                """,
-                "Precipitación Total Mensual": f"""
-                    SELECT DATE_FORMAT(fecha, '%Y-%m') AS month, SUM(prec) AS total_precipitation 
-                    FROM valores_climatologicos 
-                    WHERE nombre_id = {ciudad_id} AND fecha BETWEEN '{fecha_inicio}' AND '{fecha_fin}'
-                    GROUP BY month ORDER BY month;
-                """,
+                """
+
             }
+
 
             selected_query = st.selectbox("🔍 Selecciona una consulta avanzada:", list(queries.keys()))
             data_avanzada = run_query(queries[selected_query])
 
+
             if not data_avanzada.empty:
                 fig_advanced = go.Figure()
-                for col in data_avanzada.columns[1:]:
-                    fig_advanced.add_trace(go.Scatter(
-                        x=data_avanzada['fecha'],
-                        y=data_avanzada[col],
-                        mode='lines',
-                        name=col
-                    ))
-                fig_advanced.update_layout(title=f"Análisis Avanzado - {selected_query}", xaxis_title="Fecha",
-                                           yaxis_title="Valor")
-                st.plotly_chart(fig_advanced, use_container_width=True)
-        else:
-            st.warning("⚠️ No se encontraron datos para el rango de fechas seleccionado.")
+                X = data_avanzada['fecha']
+
+                if 'fecha' in data_avanzada.columns:
+                    for col in data_avanzada.columns[1:]:
+                        fig_advanced.add_trace(go.Scatter(
+                            x=X,
+                            y=data_avanzada[col],
+                            mode='lines',
+                            name=col
+                        ))
+                    fig_advanced.update_layout(title=f"Análisis Avanzado - {selected_query}", xaxis_title="Fecha",
+                                               yaxis_title="Valor")
+                    st.plotly_chart(fig_advanced, use_container_width=True)
+                else:
+                    st.warning("⚠️ No se encontraron datos para el rango de fechas seleccionado.")
+            else:
+                st.warning("⚠️ No se encontraron datos")
+
+
 
 
 
@@ -428,7 +431,6 @@ def main():
 
         # Selección de una o dos provincias
         provincias_df = pd.read_sql("SELECT * FROM provincias", engine)
-        provincia1 = st.selectbox("🔎 Selecciona la primera provincia", provincias_df["provincia"].tolist())
 
         # Crear un diccionario de IDs de provincias para acceso rápido
         provincia_dict = dict(zip(provincias_df['provincia'], provincias_df['provincia_id']))
@@ -488,7 +490,7 @@ def main():
 
             # Filtrar los factores seleccionados para mostrar
             factores_dict = {
-                'Temperatura Media': ['Tmed_min', 'Tmed_max', 'Tmed_median'],
+                'Temperatura Media': ['Tmed_median'],
                 'Temperatura Mínima': ['Tmed_min'],
                 'Temperatura Máxima': ['Tmed_max'],
                 'Precipitación': ['Prec_mean'],
@@ -507,27 +509,69 @@ def main():
             # Gráfico de Comparación de Factores Climáticos
             st.write("### 📊 Gráfico de Comparación Climática")
 
-            fig, ax = plt.subplots(figsize=(16, 8))
+            # Crear una figura para cada provincia
+            figs = []
 
-            # Graficar los factores seleccionados
+            # Graficar los factores seleccionados para cada provincia
             for provincia in stats['provincia'].unique():
+                fig = go.Figure()
                 provincia_data = stats[stats['provincia'] == provincia]
+
                 for factor in selected_factors:
-                    ax.plot(provincia_data['Fecha'], provincia_data[factor], label=f'{factor} - {provincia}',
-                            marker='o')
+                    fig.add_trace(go.Scatter(
+                        x=provincia_data['Fecha'],
+                        y=provincia_data[factor],
+                        mode='markers+lines',
+                        name=f'{factor} - {provincia}',
+                        marker=dict(symbol='circle')
+                    ))
 
-            # Personalización del gráfico
-            ax.set_title(
-                f'📈 Comparación Climática entre {", ".join([provincia1, provincia2] if comparar_dos else [provincia1])} en {year1} y {year2}',
-                fontsize=16)
-            ax.set_xlabel('Fecha 📅', fontsize=14)
-            ax.set_ylabel('Valor Climático', fontsize=14)
-            ax.legend(fontsize=12)
-            ax.grid(True)
-            plt.xticks(rotation=45)
+                # Personalización del gráfico
+                fig.update_layout(
+                    title=f'📈 Comparación Climática para {provincia} en {year1} y {year2}',
+                    font=dict(size=16),
+                    xaxis_title='Fecha 📅',
+                    yaxis_title='Valor Climático',
+                    legend=dict(font=dict(size=12)),
+                    xaxis=dict(tickangle=45),
+                    template='plotly_white'
+                )
 
-            # Mostrar el gráfico en la app
-            st.pyplot(fig)
+                # Añadir figura a la lista
+                figs.append(fig)
+
+            # Crear una figura para la comparación de ambas provincias
+            combined_fig = go.Figure()
+
+            # Graficar los factores seleccionados para ambas provincias en un solo gráfico
+            for factor in selected_factors:
+                for provincia in stats['provincia'].unique():
+                    provincia_data = stats[stats['provincia'] == provincia]
+                    combined_fig.add_trace(go.Scatter(
+                        x=provincia_data['Fecha'],
+                        y=provincia_data[factor],
+                        mode='markers+lines',
+                        name=f'{factor} - {provincia}',
+                        marker=dict(symbol='circle')
+                    ))
+
+            # Personalización del gráfico combinado
+            combined_fig.update_layout(
+                title=f'📈 Comparación Climática entre {provincia1} y {provincia2} en {year1} y {year2}',
+                font=dict(size=16),
+                xaxis_title='Fecha 📅',
+                yaxis_title='Valor Climático',
+                legend=dict(font=dict(size=12)),
+                xaxis=dict(tickangle=45),
+                template='plotly_white'
+            )
+
+            # Mostrar los gráficos en la app
+            for fig in figs:
+                st.plotly_chart(fig)
+
+            # Mostrar el gráfico combinado
+            st.plotly_chart(combined_fig)
 
 
 
@@ -560,12 +604,7 @@ def main():
             ).add_to(mapa)
             return mapa
 
-        def mostrar_grafico_temperatura(df, provincia, year, month):
-            fig = px.line(df, x="mes", y="media_tmed_mensual",
-                          title=f"Tendencia de Temperatura Media en {provincia} ({month}/{year})",
-                          labels={"mes": "Mes", "media_tmed_mensual": "Temperatura Media (°C)"})
-            fig.update_layout(showlegend=False)
-            st.plotly_chart(fig)
+
 
         year = st.selectbox("Selecciona el año:", [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024])
         month = st.selectbox("Selecciona el mes:", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
@@ -632,10 +671,6 @@ def main():
                                             "Temperatura Media Mensual (°C)")
         st_folium(mapa_espana, width=725)
 
-        # Gráfico de tendencia de temperatura
-        st.markdown("### Gráfico de Temperaturas Medias Mensuales:")
-        mostrar_grafico_temperatura(df, provincia_seek, year, month)
-
         # Información adicional sobre la fecha seleccionada
         st.info("2. Mapa de España con Temperaturas Medias Diarias.")
 
@@ -671,6 +706,9 @@ def main():
         mapa_espana_daily = crear_mapa_choropleth(geojson_spain, df_daily, "media_tmed", "YlOrRd",
                                                   "Temperatura Media Diaria (°C)")
         st_folium(mapa_espana_daily, width=725)
+
+
+
 
 
 
@@ -733,6 +771,7 @@ def main():
                 El **GRU** es un tipo de red neuronal recurrente que es eficiente y eficaz para trabajar con secuencias de datos. 
                 Tiene una estructura más simple que el **LSTM**, pero logra resultados muy similares. 
                 Es especialmente útil para predecir series temporales y datos secuenciales.
+                Este tipo de red ha sido la que mejor resultados ha generado semejantes a la realidad
                 """)
             elif tipo_modelo == "lstm":
                 st.write("### 📚 LSTM (Long Short-Term Memory)")
@@ -747,12 +786,50 @@ def main():
                 Aunque es útil para problemas de predicción secuencial, a veces tiene dificultades con la memoria a largo plazo, lo cual ha sido mejorado en LSTM y GRU.
                 """)
 
+
+
+            # Obtener la lista de ciudades
+            ciudades = run_query("SELECT DISTINCT ciudad_id, ciudad FROM ciudades")
+
+            # Verificar si el DataFrame está vacío
+            if ciudades.empty:
+                st.error("❌ No se encontraron ciudades.")
+                return
+
+            # Crear el diccionario de opciones para el selectbox (nombre de ciudad -> ciudad_id)
+            ciudad_opciones = {f"{ciudad['ciudad']}": ciudad['ciudad_id'] for _, ciudad in
+                               ciudades.iterrows()}
+
+            # Mostrar el selectbox de Streamlit para seleccionar una ciudad, permitiendo búsqueda
+            ciudad_seleccionada = st.selectbox("Selecciona una ciudad:", list(ciudad_opciones.keys()))
+
+            # Obtener el ID de la ciudad seleccionada
+            ciudad_id = ciudad_opciones[ciudad_seleccionada]
+
+            # Mostrar la ciudad seleccionada y su ID
+            st.write(f"Ciudad seleccionada: {ciudad_seleccionada} (ID: {ciudad_id})"
+                     f" **Utilice el ID para introducirlo en indicativo, aquí abajo.**")
+
+            # Obtener los indicativos asociados a la ciudad seleccionada
+            query_indicativos = """
+                SELECT i.indicativo_id, i.indicativo
+                FROM indicativos i
+                INNER JOIN ciudades c ON c.ciudad_id = c.ciudad_id
+                WHERE c.ciudad_id = ciudad
+            """
+            indicativos = run_query(query_indicativos)
+
+
+
+
+
+
         # Interfaz de Streamlit
         def interfaz_streamlit():
+
             # Selector para el tipo de modelo
             tipo_modelo = st.selectbox("Selecciona el tipo de modelo:", ["GRU", "LSTM", "RNN"]).lower()
 
-            # Explicar el modelo seleccionado con un emoticono y breve descripción
             explicar_modelo(tipo_modelo)
 
             # Obtener los indicativos disponibles para el tipo seleccionado
@@ -774,7 +851,6 @@ def main():
                 model, scaler = cargar_modelo_y_escalador(model_path, scaler_path)
 
                 if model is not None and scaler is not None:
-                    # Entrada de datos manual
                     st.write("📝 Proporciona los valores de las siguientes características:")
                     tmed = st.number_input("Temperatura media (tmed):", value=15.0, step=0.1)
                     prec = st.number_input("Precipitación (prec):", value=0.0, step=0.1)
@@ -787,10 +863,8 @@ def main():
 
                     def predict():
                         try:
-                            # Crear el array de entrada
                             input_data = np.array([[tmed, prec, tmin, tmax, dire, velemedia, hrMedia, hrMax]])
 
-                            # Escalar los datos
                             scaled_data = scaler.transform(input_data)
 
                             # Preparar los datos para la predicción (formato 3D)
@@ -809,14 +883,17 @@ def main():
                                                axis=1)
                             )[:, 0]  # Solo la columna 'tmed' rescalada
 
-                            # Mostrar el resultado
                             st.success(
                                 f"🔮 La predicción de la temperatura media para el día siguiente es: {prediction_rescaled[0]:.2f}°C")
                         except Exception as e:
                             st.error(f"⚠️ Error al realizar la predicción: {e}")
 
-                    # Botón para predecir
                     st.button("🔮 Predecir Temperatura Media", on_click=predict)
+
+
+
+
+
 
         # Ejecutar la interfaz de Streamlit
         if __name__ == "__main__":
@@ -860,80 +937,52 @@ def main():
 
         # Función para cargar el modelo
         @st.cache_resource
+        # Función para cargar modelos .pkl
         def load_model(file_path):
-            return joblib.load(file_path)
+            return load(file_path)
 
-        # Carga de modelos preentrenados
+        # Carga de modelos
         models = {
-            "Modelo Semestral 📅": load_model("f_prophet_biannual.pkl"),
-            "Modelo Trimestral 🏞️": load_model("f_prophet_quarterly.pkl"),
-            "Modelo Mensual 🗓️": load_model("f_prophet_monthly.pkl"),
-            "Modelo Semanal 📆": load_model("f_prophet_weekly.pkl"),
-            "Modelo Diario 🌞": load_model("f_prophet_daily.pkl")
+            "Semestres": load_model("f_prophet_biannual.pkl"),
+            "Trimestres": load_model("f_prophet_quarterly.pkl"),
+            "Meses": load_model("f_prophet_monthly.pkl"),
+            "Semanas": load_model("f_prophet_weekly.pkl"),
+            "Días": load_model("f_prophet_daily.pkl")
         }
 
-        # Cargar datos
-        query1 = "SELECT fecha, tmed FROM valores_climatologicos"
-        data_real = run_query(query1)
+        # Input de datos reales (simulamos que provienen de una query)
+        query = """
+                SELECT fecha, tmed
+                FROM valores_climatologicos
+                """
+
+        # Simulación de datos obtenidos (reemplaza esto por tu extracción real de datos)
+        data_real = run_query(query)
+
+        st.write("**Datos reales extraídos:**")
+        st.dataframe(data_real)
+
+        # Conversión al formato requerido por Prophet
         data_real.rename(columns={"fecha": "ds", "tmed": "y"}, inplace=True)
 
         # Selección del modelo
-        model_choice = st.selectbox(
-            "🔍 **Seleccione el modelo que desee utilizar:**",
-            list(models.keys())
-        )
+        model_choice = st.selectbox("Seleccione el modelo que desea utilizar:", list(models.keys()))
 
-        # Selección del rango de tiempo
-        times = {"Mañana 🌅": 1, "Semana 📅": 7, "Quincena 🔜": 14, "Mes 🗓️": 30}
-        times_choice = st.selectbox(
-            "⏳ **Seleccione el rango de tiempo que desee predecir:**",
-            list(times.keys())
-        )
-
-        # Función para generar fechas futuras usando pandas directamente
-        def generar_fechas_futuras(ultima_fecha, periods, freq='D'):
-            fechas_futuras = pd.date_range(start=ultima_fecha + pd.Timedelta(days=1), periods=periods, freq=freq)
-            return fechas_futuras
-
-        # Función para mostrar predicciones
-        def show_predictions(model, data_real, periods):
-            # Generar fechas futuras
-            ultima_fecha = data_real['ds'].max()
-            future_dates = generar_fechas_futuras(ultima_fecha, periods)
-
-            # Crear DataFrame para predicciones
-            future = pd.DataFrame({'ds': future_dates})
-
-            # Realizar predicción
+        st.write(f"Tipo del modelo: {type(models[model_choice])}")
+        # Predicción con el modelo seleccionado
+        if st.button("Predecir"):
+            model = models[model_choice]  # Asegúrate de que este es un modelo Prophet
+            future = model.make_future_dataframe(periods=30, freq='D')
             forecast = model.predict(future)
+            st.write(forecast)
 
-            # Redondear y formatear la columna de predicción
-            forecast['yhat'] = forecast['yhat'].round(2).astype(str) + " ºC"
+            # Mostrar predicciones y gráfico
+            st.write(f"**Predicciones para el modelo de {model_choice}:**")
+            st.dataframe(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail())
 
-            # Mostrar resultados
-            st.write("📊 **Predicciones de temperatura media:**")
-            st.dataframe(forecast[['ds', 'yhat']].rename(columns={'ds': 'Fecha', 'yhat': 'Temperatura media'}))
-
-            # Gráfica interactiva
-            fig = go.Figure()
-
-            # Agregar datos reales
-            fig.add_trace(go.Scatter(x=data_real['ds'], y=data_real['y'], mode='markers', name='Datos reales 🌡️'))
-
-            # Agregar predicciones
-            fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'].str.replace(' ºC', '').astype(float),
-                                     mode='lines', name='Predicción 🔮'))
-
-            fig.update_layout(title="📈 Predicción de Temperatura 🌡️", xaxis_title="Fecha",
-                              yaxis_title="Temperatura (°C)")
-
-            st.plotly_chart(fig)
-
-        # Botón para predecir
-        if st.button("🚀 ¡Predecir!"):
-            model = models[model_choice]
-            show_predictions(model, data_real, times[times_choice])
-            st.balloons()
+            st.write("**Gráfico de predicciones:**")
+            fig = model.plot(forecast)
+            st.pyplot(fig)
 
 
 
